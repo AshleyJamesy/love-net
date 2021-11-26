@@ -1,6 +1,3 @@
-local min = math.min
-local max = math.max
-
 local data, thread = require("love.data"), require("love.thread")
 local pack, unpack = data.pack, data.unpack
 
@@ -50,7 +47,7 @@ local mt_stream = {
 		return f, bytes
 	end,
 	writeDouble = function(stream, double)
-		stream.bytes = stream.stream .. pack("string", "d", double)
+		stream.bytes = stream.bytes .. pack("string", "d", double)
 	end,
 	readDouble = function(stream)
 		local d, bytes = unpack("d", stream.bytes, stream.index)
@@ -325,9 +322,9 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 						if flag == 0 then
 							flag = "reliable"
 						elseif flag == 1 then
-							flag = "unsequenced"
-						elseif flag == 2 then
 							flag = "unreliable"
+						elseif flag == 2 then
+							flag = "unsequenced"
 						else
 							flag = "reliable"
 						end
@@ -348,9 +345,9 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 						if flag == 0 then
 							flag = "reliable"
 						elseif flag == 1 then
-							flag = "unsequenced"
-						elseif flag == 2 then
 							flag = "unreliable"
+						elseif flag == 2 then
+							flag = "unsequenced"
 						else
 							flag = "reliable"
 						end
@@ -400,7 +397,7 @@ local function send(address, flag, channel)
 	if net_thread and ch_send then
 		packet:writeByte(2)
 		packet:writeByte(channel or 0)
-		packet:writeByte(flag)
+		packet:writeByte(flag or 0)
 		packet:writeString(address)
 		packet:writeBytes(stream_send:getBytes())
 
@@ -503,6 +500,14 @@ local function start(message)
 	stream_send:writeString(message)
 end
 
+local function writeByte(byte)
+	stream_send:writeByte(byte)
+end
+
+local function readByte(byte)
+	return stream_read:readByte(byte)
+end
+
 local function writeBool(bool)
 	stream_send:writeBool(bool)
 end
@@ -528,7 +533,7 @@ local function readFloat()
 end
 
 local function writeDouble(double)
-	stream_send:WriteDouble(double)
+	stream_send:writeDouble(double)
 end
 
 local function readDouble()
@@ -543,20 +548,23 @@ local function readString()
 	return stream_read:readString()
 end
 
+local max = math.max
+local min = math.min
+
 local function writeColour(r, g, b, a)
-	send:pack("B", ceil(max(r, 255)))
-	send:pack("B", ceil(max(g, 255)))
-	send:pack("B", ceil(max(b, 255)))
-	send:pack("B", ceil(max(a, 255)))
+	stream_send:writeFloat(min(max(r, 0.0), 1.0))
+	stream_send:writeFloat(min(max(g, 0.0), 1.0))
+	stream_send:writeFloat(min(max(b, 0.0), 1.0))
+	stream_send:writeFloat(min(max(a, 0.0), 1.0))
 end
 
 local function readColour()
-	local r = read:unpack("B")
-	local g = read:unpack("B")
-	local b = read:unpack("B")
-	local a = read:unpack("B")
+	local r = stream_read:readFloat()
+	local g = stream_read:readFloat()
+	local b = stream_read:readFloat()
+	local a = stream_read:readFloat()
 
-	return r / 255, g / 255, b / 255, a / 255
+	return r, g, b, a
 end
 
 return {
@@ -569,6 +577,10 @@ return {
 	state = state,
 	send = send,
 	start = start,
+	writeByte = writeByte,
+	readByte = readByte,
+	writeBool = writeBool,
+	readBool = readBool,
 	writeInt = writeInt,
 	readInt = readInt,
 	writeFloat = writeFloat,
