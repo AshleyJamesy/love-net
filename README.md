@@ -22,6 +22,7 @@ function love.update()
 end
 
 --callback will be called any time a state changes for address
+--list of states here: https://leafo.net/lua-enet/#peerstate
 net.state(function(address, state)
   print("state changed for '" .. address .. "' to " .. state)
 
@@ -79,6 +80,7 @@ function love.update()
 end
 
 --will be called any time a state changes for address
+--list of states here: https://leafo.net/lua-enet/#peerstate
 net.state(function(address, state)
   print("state changed for '" .. address .. "' to " .. state)
 
