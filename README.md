@@ -18,7 +18,7 @@ function love.load()
 end
 
 function love.update()
-  net.update()
+  net.update() --calls all callbacks which have been queued up by thread
 end
 
 --callback will be called any time a state changes for address
@@ -76,7 +76,7 @@ function love.load()
 end
 
 function love.update()
-  net.update()
+  net.update() --calls all callbacks which have been queued up by thread
 end
 
 --will be called any time a state changes for address
