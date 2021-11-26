@@ -17,6 +17,10 @@ function love.load()
   net.init(address, max_connections, max_channels, in_bandwidth, out_bandwidth)
 end
 
+function love.update()
+  net.update()
+end
+
 --callback will be called any time a state changes for address
 net.state(function(address, state)
   print("state changed for '" .. address .. "' to " .. state)
@@ -68,6 +72,10 @@ function love.load()
 
   net.init(address, max_connections, max_channels, in_bandwidth, out_bandwidth)
   net.connect("127.0.0.1:27015") --connect to the server
+end
+
+function love.update()
+  net.update()
 end
 
 --will be called any time a state changes for address
