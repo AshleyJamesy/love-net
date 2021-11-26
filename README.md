@@ -29,12 +29,12 @@ net.state(function(address, state)
     print("connection established with " .. address)
     
     net.start("ping")
-    net.writeByte(1)
+    net.writeByte(8)
     net.writeBool(true)
     net.writeInt(32)
-    net.writeFloat(1000.0)
-    net.writeDouble(2000.0)
-    net.writeString("Hello World")
+    net.writeFloat(math.pi)
+    net.writeDouble(math.pi * 2)
+    net.writeString("Hello world")
     net.writeColour(1.0, 0.0, 0.0, 1.0)
     
     net.send(address) --send message to address only
