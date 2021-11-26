@@ -38,7 +38,7 @@ net.state(function(address, state)
     net.writeColour(1.0, 0.0, 0.0, 1.0)
     
     net.send(address) --send message to address only
-    --net.send(flag, channel)
+    --net.send(address, flag, channel)
     
     --net.broadcast() --send message to all connections
     --net.broadcast(flag, channel)
@@ -109,7 +109,7 @@ net.receive("ping", function(address)
 
   net.start("pong")
   net.send(address) --send message to address only
-  --net.send(flag, channel)
+  --net.send(address, flag, channel)
 
   --net.broadcast() --send message to all connections
   --net.broadcast(flag, channel)
