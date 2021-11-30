@@ -37,6 +37,7 @@ net.state(function(address, state)
     net.writeDouble(math.pi * 2)
     net.writeString("Hello world")
     net.writeColour(1.0, 0.0, 0.0, 1.0)
+    net.writeFormat("Bifds", 1, 32, 64.123, 124.123, "Hello world") --write a custom format based on: https://www.lua.org/manual/5.3/manual.html#6.4.2
     
     net.send(address) --send message to address only
     --net.send(address, flag, channel)
@@ -100,7 +101,11 @@ net.receive("ping", function(address)
   local double = net.readDouble()
   local str = net.readString()
   local r, g, b, a = net.readColour()
-
+  
+  --custom format, quicker but more complicated
+  local fByte, fInt, fFloat, fDouble, fString, index = net.readFormat("Bifds") --last returned value is index in stream
+  net.seek(index) --must seek to index after reading custom format, otherwise wont be able to read other values after custom format
+  
   print("\tbyte:", byte)
   print("\tbool:", bool)
   print("\tint:", int)
@@ -108,6 +113,7 @@ net.receive("ping", function(address)
   print("\tdouble:", double)
   print("\tstring:", str)
   print("\tcolour:", r, g, b, a)
+  print("\tcustom:, fByte, fInt, fFloat, fDouble, fString)
 
   net.start("pong")
   net.send(address) --send message to address only
