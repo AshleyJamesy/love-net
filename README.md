@@ -113,7 +113,7 @@ net.receive("ping", function(address)
   print("\tdouble:", double)
   print("\tstring:", str)
   print("\tcolour:", r, g, b, a)
-  print("\tcustom:, fByte, fInt, fFloat, fDouble, fString)
+  print("\tcustom:", fByte, fInt, fFloat, fDouble, fString)
 
   net.start("pong")
   net.send(address) --send message to address only
