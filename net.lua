@@ -56,22 +56,19 @@ local mt_stream = {
 		return d, bytes
 	end,
 	writeString = function(stream, str)
-		stream.bytes = stream.bytes .. pack("string", "s4", str)
+		stream.bytes = stream.bytes .. pack("string", "s", str)
 	end,
 	readString = function(stream)
-		local s, bytes = unpack("s4", stream.bytes, stream.index)
+		local s, bytes = unpack("s", stream.bytes, stream.index)
 		stream.index = bytes
 		
 		return s, bytes
 	end,
-	pack = function(stream, format, value)
-		stream.bytes = stream.bytes .. pack("string", format, value)
+	pack = function(stream, format, ...)
+		stream.bytes = stream.bytes .. pack("string", format, ...)
 	end,
 	unpack = function(stream, format)
-		local n, bytes = unpack(format, stream.bytes, stream.index)
-		stream.index = bytes
-		
-		return n, bytes
+		return unpack(format, stream.bytes, stream.index)
 	end,
 	setBytes = function(stream, bytes)
 		stream.bytes = bytes
@@ -160,22 +157,19 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 				return d, bytes
 			end,
 			writeString = function(stream, str)
-				stream.bytes = stream.bytes .. pack("string", "s4", str)
+				stream.bytes = stream.bytes .. pack("string", "s", str)
 			end,
 			readString = function(stream)
-				local s, bytes = unpack("s4", stream.bytes, stream.index)
+				local s, bytes = unpack("s", stream.bytes, stream.index)
 				stream.index = bytes
 				
 				return s, bytes
 			end,
-			pack = function(stream, format, value)
-				stream.bytes = stream.bytes .. pack("string", format, value)
+			pack = function(stream, format, ...)
+				stream.bytes = stream.bytes .. pack("string", format, ...)
 			end,
 			unpack = function(stream, format)
-				local n, bytes = unpack(format, stream.bytes, stream.index)
-				stream.index = bytes
-				
-				return n, bytes
+				return unpack(format, stream.bytes, stream.index)
 			end,
 			setBytes = function(stream, bytes)
 				stream.bytes = bytes
@@ -374,20 +368,15 @@ end
 
 local function connect(address, server)
 	if net_thread and ch_send then
-		packet:writeByte(0)
-		packet:writeString(address)
-
+		packet:pack("Bs4", 0, address)
 		ch_send:push(packet:getBytes())
 		packet:setBytes("")
 	end
 end
 
-local function disconnect(address, data)
+local function disconnect(address, code)
 	if net_thread and ch_send then
-		packet:writeByte(1)
-		packet:writeString(address)
-		packet:writeByte(data)
-
+		packet:pack("Bs4B", 1, address, code)
 		ch_send:push(packet:getBytes())
 		packet:setBytes("")
 	end    
@@ -395,28 +384,19 @@ end
 
 local function send(address, flag, channel)
 	if net_thread and ch_send then
-		packet:writeByte(2)
-		packet:writeByte(channel or 0)
-		packet:writeByte(flag or 0)
-		packet:writeString(address)
-		packet:writeBytes(stream_send:getBytes())
-
+		packet:pack("BBBs4s4", 2, channel or 0, flag or 0, address, stream_send:getBytes())
 		ch_send:push(packet:getBytes())
-		packet:setBytes("")
 		stream_send:setBytes("")
+		packet:setBytes("")
 	 end
 end
 
 local function broadcast(flag, channel)
 	if net_thread and ch_send then
-		packet:writeByte(3)
-		packet:writeByte(channel or 0)
-		packet:writeByte(flag)
-		packet:writeBytes(stream_send:getBytes())
-
+		packet:pack("BBBs4", 3, channel or 0, flag or 0, stream_send:getBytes())
 		ch_send:push(packet:getBytes())
-		packet:setBytes("")
 		stream_send:setBytes("")
+		packet:setBytes("")
 	end
 end
 
@@ -548,23 +528,35 @@ local function readString()
 	return stream_read:readString()
 end
 
+local function writeFormat(format, ...)
+	stream_send:pack(format, ...)
+end
+
+local function readFormat(format)
+	return stream_read:unpack(format)
+end
+
 local max = math.max
 local min = math.min
 
 local function writeColour(r, g, b, a)
-	stream_send:writeFloat(min(max(r, 0.0), 1.0))
-	stream_send:writeFloat(min(max(g, 0.0), 1.0))
-	stream_send:writeFloat(min(max(b, 0.0), 1.0))
-	stream_send:writeFloat(min(max(a, 0.0), 1.0))
+	stream_send:pack("ffff", 
+		min(max(r, 0.0), 1.0), 
+		min(max(g, 0.0), 1.0), 
+		min(max(b, 0.0), 1.0), 
+		min(max(a, 0.0), 1.0)
+	)
 end
 
 local function readColour()
-	local r = stream_read:readFloat()
-	local g = stream_read:readFloat()
-	local b = stream_read:readFloat()
-	local a = stream_read:readFloat()
+	local r, g, b, a, i = stream_read:unpack("ffff")
+	stream_read:seek(i)
 
 	return r, g, b, a
+end
+
+local function seek(index)
+	stream_read:seek(index)
 end
 
 return {
@@ -591,4 +583,7 @@ return {
 	readString = readString,
 	writeColour = writeColour,
 	readColour = readColour,
+	writeFormat = writeFormat,
+	readFormat = readFormat,
+	seek = seek
 }
