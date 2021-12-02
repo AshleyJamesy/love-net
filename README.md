@@ -37,7 +37,7 @@ net.state(function(address, state)
     net.writeDouble(math.pi * 2)
     net.writeString("Hello world")
     net.writeColour(1.0, 0.0, 0.0, 1.0)
-    net.writeFormat("Bifds", 1, 32, 64.123, 124.123, "Hello world") --write a custom format based on: https://www.lua.org/manual/5.3/manual.html#6.4.2
+    net.writeFormat("Bifds", 1, 32, math.pi, math.pi * 2, "Hello world") --write a custom format based on: https://www.lua.org/manual/5.3/manual.html#6.4.2
     
     net.send(address) --send message to address only
     --net.send(address, flag, channel)
