@@ -8,6 +8,8 @@ Server:
 net = require("net")
 
 function love.load()
+  print("SERVER")
+
   local address = "127.0.0.1:27015" --run the server on port 27015
   local max_connections = 8 --maximum connections allowed
   local max_channels = 1
@@ -37,7 +39,7 @@ net.state(function(address, state)
     net.writeDouble(math.pi * 2)
     net.writeString("Hello world")
     net.writeColour(1.0, 0.0, 0.0, 1.0)
-    net.writeFormat("Bifds", 1, 32, math.pi, math.pi * 2, "Hello world") --write a custom format based on: https://www.lua.org/manual/5.3/manual.html#6.4.2
+    net.writeFormat("Bifds", 0, 32, math.pi, math.pi * 2, "Hello world") --write a custom format based on: https://www.lua.org/manual/5.3/manual.html#6.4.2
     
     net.send(address) --send message to address only
     --net.send(address, flag, channel)
@@ -56,8 +58,9 @@ net.state(function(address, state)
 end)
 
 --callback will be called any time we receive a message with "pong"
-net.receive("pong", function(address)
-  print("client recieved our 'ping' response and sent 'pong' back")
+net.receive("pong", function(address, roundTripTime)
+  --you'll need to send a lot more messages to average down the round trip time as it starts high and then lowers
+  print("client recieved our 'ping' response and sent 'pong' back", roundTripTime)
 end)
 ```
 
@@ -66,6 +69,8 @@ Client:
 net = require("net")
   
 function love.load()
+  print("CLIENT")
+  
   local address = "127.0.0.1:*" --just use a random port to connect
   local max_connections = 1 --only connecting to server, so only 1 connection needed
   local max_channels = 1
@@ -91,8 +96,9 @@ net.state(function(address, state)
 end)
 
 --callback will be called any time we receive a message with "ping"
-net.receive("ping", function(address)
-  print("received message: 'ping' from '" .. address .. "'")
+net.receive("ping", function(address, roundTripTime)
+  --you'll need to send a lot more messages to average down the round trip time as it starts high and then lowers
+  print("received message: 'ping' from '" .. address .. "'", roundTripTime)
 
   local byte = net.readByte()
   local bool = net.readBool()
