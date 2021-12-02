@@ -100,6 +100,7 @@ net.receive("ping", function(address, roundTripTime)
   --you'll need to send a lot more messages to average down the round trip time as it starts high and then lowers
   print("received message: 'ping' from '" .. address .. "'", roundTripTime)
 
+  --the packet must be read in the order it was written in
   local byte = net.readByte()
   local bool = net.readBool()
   local int = net.readInt()
