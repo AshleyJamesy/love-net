@@ -368,7 +368,7 @@ end
 
 local function connect(address, server)
 	if net_thread and ch_send then
-		packet:pack("Bs4", 0, address)
+		packet:pack("Bs", 0, address)
 		ch_send:push(packet:getBytes())
 		packet:setBytes("")
 	end
@@ -376,7 +376,7 @@ end
 
 local function disconnect(address, code)
 	if net_thread and ch_send then
-		packet:pack("Bs4B", 1, address, code)
+		packet:pack("BsB", 1, address, code)
 		ch_send:push(packet:getBytes())
 		packet:setBytes("")
 	end    
@@ -384,7 +384,8 @@ end
 
 local function send(address, flag, channel)
 	if net_thread and ch_send then
-		packet:pack("BBBs4s4", 2, channel or 0, flag or 0, address, stream_send:getBytes())
+		packet:pack("BBBs", 2, channel or 0, flag or 0, address)
+		packet:writeBytes(stream_send:getBytes())
 		ch_send:push(packet:getBytes())
 		stream_send:setBytes("")
 		packet:setBytes("")
@@ -393,7 +394,8 @@ end
 
 local function broadcast(flag, channel)
 	if net_thread and ch_send then
-		packet:pack("BBBs4", 3, channel or 0, flag or 0, stream_send:getBytes())
+		packet:pack("BBB", 3, channel or 0, flag or 0)
+		packet:writeBytes(stream_send:getBytes())
 		ch_send:push(packet:getBytes())
 		stream_send:setBytes("")
 		packet:setBytes("")
