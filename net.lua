@@ -88,16 +88,19 @@ local mt_stream = {
 }
 mt_stream.__index = mt_stream
 
-local net_thread, ch_send, ch_receive
+local net_thread, channel_send, channel_receive
 
 local states, callbacks, packet, stream_send, stream_read = {}, {}, setmetatable({ bytes = "", index = 1 }, mt_stream), setmetatable({ bytes = "", index = 1 }, mt_stream), setmetatable({ bytes = "", index = 1 }, mt_stream)
 
-local function init(address, max_connections, max_channels, in_bandwidth, out_bandwidth)
-	ch_send = thread.newChannel()
-	ch_receive = thread.newChannel()
+local function init(address, max_connections, max_channels, bandwidth_in, bandwidth_out)
+	channel_send, channel_receive = thread.newChannel(), thread.newChannel()
+
+	if net_thread ~= nil then
+		
+	end
 
 	net_thread = thread.newThread([[
-		local config, ch_send, ch_receive = ...
+		local address, max_connections, max_channels, bandwidth_in, bandwidth_out, channel_send, channel_receive = ...
 
 		local enet, data = require("enet"), require("love.data")
 		local pack, unpack = data.pack, data.unpack
@@ -191,10 +194,10 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 
 		local stream = setmetatable({ bytes = "", index = 1 }, mt_stream)
 
-		host = enet.host_create(config.address, config.max_connections, config.max_channels, config.in_bandwidth, config.out_bandwidth)
+		host = enet.host_create(address, max_connections, max_channels, bandwidth_in, bandwidth_out)
 
 		local states = {}
-		for i = 1, config.max_connections do
+		for i = 1, max_connections do
 			states[i] = {
 				id = 0,
 				index = i,
@@ -307,11 +310,7 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 							host:get_peer(state.index):disconnect_now(stream:readByte())
 						end
 					elseif action == 2 then
-						local channel = stream:readByte()
-						local flag = stream:readByte()
-
-						local address = stream:readString()
-						local data = stream:sub(stream:peek())
+						local channel, flag, address, data = stream:readByte(), stream:readByte(), stream:readString(), stream:sub(stream:peek())
 
 						if flag == 0 then
 							flag = "reliable"
@@ -332,9 +331,7 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 						end
 
 					elseif action == 3 then
-						local channel = stream:readByte()
-						local flag = stream:readByte()
-						local data = stream:sub(stream:peek())
+						local channel, flag, data = stream:readByte(), stream:readByte(), stream:sub(stream:peek())
 
 						if flag == 0 then
 							flag = "reliable"
@@ -355,15 +352,7 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 		end
 	]])
 
-	local configuration = {
-		address = address,
-		max_connections = max_connections,
-		max_channels = max_channels,
-		incoming = incoming,
-		outgoing = outgoing
-	}
-
-	net_thread:start(configuration, ch_send, ch_receive)
+	net_thread:start(address, max_connections, max_channels, bandwidth_in, bandwidth_out, ch_send, ch_receive)
 end
 
 local function connect(address, server)
