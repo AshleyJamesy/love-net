@@ -148,7 +148,7 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 				return f, bytes
 			end,
 			writeDouble = function(stream, double)
-				stream.bytes = stream.stream .. pack("string", "d", double)
+				stream.bytes = stream.bytes .. pack("string", "d", double)
 			end,
 			readDouble = function(stream)
 				local d, bytes = unpack("d", stream.bytes, stream.index)
@@ -215,22 +215,6 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 				local status, packet
 				status, packet = pcall(host.service, host)
 
-				--RECEIVING PACKETS
-				while packet do
-					local state = states[packet.peer:index()]
-
-					if packet.type == "receive" then
-						stream:writeByte(1)
-						stream:writeString(state.address)
-						stream:writeBytes(packet.data)
-
-						ch_receive:push(stream:getBytes())
-						stream:setBytes("")
-					end
-
-					status, packet = pcall(host.service, host)
-				end
-
 				--STATE CHANGES
 				for index, state in pairs(states) do
 					local peer = host:get_peer(index)
@@ -289,6 +273,22 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 					end
 				end
 
+				--RECEIVING PACKETS
+				while packet do
+					local state = states[packet.peer:index()]
+					if packet.type == "receive" then
+						stream:writeByte(1)
+						stream:writeString(state.address)
+						stream:writeInt(packet.peer:round_trip_time())
+						stream:writeBytes(packet.data)
+
+						ch_receive:push(stream:getBytes())
+						stream:setBytes("")
+					end
+
+					status, packet = pcall(host.service, host)
+				end
+
 				--SENDING PACKETS
 				local outgoing = ch_send:pop()
 
@@ -304,7 +304,7 @@ local function init(address, max_connections, max_channels, in_bandwidth, out_ba
 						local state = statesByAddress[stream:readString()]
 
 						if state then
-							host:get_peer(state.index):disconnect_later(stream:readByte())
+							host:get_peer(state.index):disconnect_now(stream:readByte())
 						end
 					elseif action == 2 then
 						local channel = stream:readByte()
@@ -446,17 +446,18 @@ local function update()
 				callback(address, state)
 			end
 		elseif type == 1 then
-			local address, index = stream_read:readString()
-
-			stream_read:setBytes(stream_read:sub(index))
-			stream_read:seek(1)
+			local address = stream_read:readString()
+			local roundTripTime = stream_read:readInt()
 
 			local message, bytes = stream_read:readString()
+
+			stream_read:setBytes(stream_read:sub(bytes))
+			stream_read:seek(1)
  
 			if callbacks[message] ~= nil then
 				for _, callback in pairs(callbacks[message]) do
-					stream_read:seek(bytes)
-					callback(address)
+					stream_read:seek(1)
+					callback(address, roundTripTime)
 				end
 			end
 		end
