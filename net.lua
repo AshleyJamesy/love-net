@@ -55,6 +55,24 @@ local mt_stream = {
 		
 		return d, bytes
 	end,
+	writeLong = function(stream, long)
+		stream.bytes = stream.bytes .. pack("string", "l", long)
+	end,
+	readLong = function(stream)
+		local l, bytes = unpack("l", stream.bytes, stream.index)
+		stream.index = bytes
+
+		return l, bytes
+	end,
+	writeNumber = function(stream, number)
+		stream.bytes = stream.bytes .. pack("string", "n", number)
+	end,
+	readNumber = function(stream)
+		local n, bytes = unpack("n", stream.bytes, stream.index)
+		stream.index = bytes
+
+		return n, bytes
+	end,
 	writeString = function(stream, str)
 		stream.bytes = stream.bytes .. pack("string", "s", str)
 	end,
@@ -90,7 +108,8 @@ mt_stream.__index = mt_stream
 
 local net_thread, channel_send, channel_receive
 
-local states, callbacks, packet, stream_send, stream_read = {}, {}, setmetatable({ bytes = "", index = 1 }, mt_stream), setmetatable({ bytes = "", index = 1 }, mt_stream), setmetatable({ bytes = "", index = 1 }, mt_stream)
+local states, callbacks, packet, stream_send, stream_read = 
+	{}, {}, setmetatable({ bytes = "", index = 1 }, mt_stream), setmetatable({ bytes = "", index = 1 }, mt_stream), setmetatable({ bytes = "", index = 1 }, mt_stream)
 
 local function init(address, max_connections, max_channels, bandwidth_in, bandwidth_out)
 	channel_send, channel_receive = thread.newChannel(), thread.newChannel()
@@ -159,6 +178,24 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 				
 				return d, bytes
 			end,
+			writeLong = function(stream, long)
+				stream.bytes = stream.bytes .. pack("string", "l", long)
+			end,
+			readLong = function(stream)
+				local l, bytes = unpack("l", stream.bytes, stream.index)
+				stream.index = bytes
+				
+				return l, bytes
+			end,
+			writeNumber = function(stream, number)
+				stream.bytes = stream.bytes .. pack("string", "n", number)
+			end,
+			readNumber = function(stream)
+				local n, bytes = unpack("n", stream.bytes, stream.index)
+				stream.index = bytes
+				
+				return n, bytes
+			end,
 			writeString = function(stream, str)
 				stream.bytes = stream.bytes .. pack("string", "s", str)
 			end,
@@ -215,9 +252,6 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 			stream:seek(1)
 
 			if host then
-				local status, packet
-				status, packet = pcall(host.service, host)
-
 				--STATE CHANGES
 				for index, state in pairs(states) do
 					local peer = host:get_peer(index)
@@ -239,6 +273,9 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 							end
 
 							stream:writeByte(0)
+							stream:writeString(state.address)
+							stream:writeNumber(state.id)
+							stream:writeInt(peer:round_trip_time())
 
 							local status = state.state
 
@@ -268,13 +305,14 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 								stream:writeByte(1)
 							end
 
-							stream:writeString(state.address)
-
-							ch_receive:push(stream:getBytes())
+							channel_receive:push(stream:getBytes())
 							stream:setBytes("")
 						end
 					end
 				end
+
+				local status, packet
+				status, packet = pcall(host.service, host)
 
 				--RECEIVING PACKETS
 				while packet do
@@ -282,10 +320,11 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 					if packet.type == "receive" then
 						stream:writeByte(1)
 						stream:writeString(state.address)
+						stream:writeNumber(state.id)
 						stream:writeInt(packet.peer:round_trip_time())
 						stream:writeBytes(packet.data)
 
-						ch_receive:push(stream:getBytes())
+						channel_receive:push(stream:getBytes())
 						stream:setBytes("")
 					end
 
@@ -293,7 +332,7 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 				end
 
 				--SENDING PACKETS
-				local outgoing = ch_send:pop()
+				local outgoing = channel_send:pop()
 
 				while outgoing do
 					stream:setBytes(outgoing)
@@ -307,7 +346,7 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 						local state = statesByAddress[stream:readString()]
 
 						if state then
-							host:get_peer(state.index):disconnect_now(stream:readByte())
+							host:get_peer(state.index):disconnect(stream:readByte())
 						end
 					elseif action == 2 then
 						local channel, flag, address, data = stream:readByte(), stream:readByte(), stream:readString(), stream:sub(stream:peek())
@@ -346,61 +385,65 @@ local function init(address, max_connections, max_channels, bandwidth_in, bandwi
 						host:broadcast(data, channel, flag)
 					end
 
-					outgoing = ch_send:pop()
+					outgoing = channel_send:pop()
 				end
 			end
 		end
 	]])
 
-	net_thread:start(address, max_connections, max_channels, bandwidth_in, bandwidth_out, ch_send, ch_receive)
+	net_thread:start(address, max_connections, max_channels, bandwidth_in, bandwidth_out, channel_send, channel_receive)
 end
 
 local function connect(address, server)
-	if net_thread and ch_send then
+	if net_thread and channel_send then
 		packet:pack("Bs", 0, address)
-		ch_send:push(packet:getBytes())
+		channel_send:push(packet:getBytes())
 		packet:setBytes("")
 	end
 end
 
 local function disconnect(address, code)
-	if net_thread and ch_send then
-		packet:pack("BsB", 1, address, code)
-		ch_send:push(packet:getBytes())
+	if net_thread and channel_send then
+		packet:pack("BsB", 1, address, code or 0)
+		channel_send:push(packet:getBytes())
 		packet:setBytes("")
 	end    
 end
 
 local function send(address, flag, channel)
-	if net_thread and ch_send then
+	if net_thread and channel_send then
 		packet:pack("BBBs", 2, channel or 0, flag or 0, address)
 		packet:writeBytes(stream_send:getBytes())
-		ch_send:push(packet:getBytes())
+		channel_send:push(packet:getBytes())
 		stream_send:setBytes("")
 		packet:setBytes("")
 	 end
 end
 
 local function broadcast(flag, channel)
-	if net_thread and ch_send then
+	if net_thread and channel_send then
 		packet:pack("BBB", 3, channel or 0, flag or 0)
 		packet:writeBytes(stream_send:getBytes())
-		ch_send:push(packet:getBytes())
+		channel_send:push(packet:getBytes())
 		stream_send:setBytes("")
 		packet:setBytes("")
 	end
 end
 
 local function update()
-	local receive = ch_receive:pop()
+	local packet = channel_receive:pop()
 
-	while receive ~= nil do
-		stream_read:setBytes(receive)
+	while packet ~= nil do
+		stream_read:setBytes(packet)
 		stream_read:seek(1)
 
 		local type = stream_read:readByte()
 
 		if type == 0 then
+			local address = stream_read:readString()
+			local connectId = stream_read:readNumber()
+			local roundTripTime = stream_read:readInt()
+
 			local state = stream_read:readByte()
 
 			if state == 1 then
@@ -429,13 +472,12 @@ local function update()
 				state = "disconnected"
 			end
 
-			local address = stream_read:readString()
-
 			for _, callback in pairs(states) do
-				callback(address, state)
+				callback(address, connectId, state, roundTripTime)
 			end
 		elseif type == 1 then
 			local address = stream_read:readString()
+			local connectId = stream_read:readNumber()
 			local roundTripTime = stream_read:readInt()
 
 			local message, bytes = stream_read:readString()
@@ -446,12 +488,12 @@ local function update()
 			if callbacks[message] ~= nil then
 				for _, callback in pairs(callbacks[message]) do
 					stream_read:seek(1)
-					callback(address, roundTripTime)
+					callback(address, connectId, roundTripTime)
 				end
 			end
 		end
 
-		receive = ch_receive:pop()
+		packet = channel_receive:pop()
 	end
 end
 
@@ -510,6 +552,22 @@ end
 
 local function readDouble()
 	return stream_read:readDouble()
+end
+
+local function writeLong(long)
+	stream_send:writeLong(long)
+end
+
+local function readLong()
+	return stream_read:readLong()
+end
+
+local function writeNumber(number)
+	stream_send:writeNumber(number)
+end
+
+local function readNumber()
+	return stream_read:readNumber()
 end
 
 local function writeString(str)
@@ -571,6 +629,10 @@ return {
 	readFloat = readFloat,
 	writeDouble = writeDouble,
 	readDouble = readDouble,
+	writeLong = writeLong,
+	readLong = readLong,
+	writeNumber = writeNumber,
+	readNumber = readNumber,
 	writeString = writeString,
 	readString = readString,
 	writeColour = writeColour,
