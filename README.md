@@ -37,23 +37,30 @@ net.state(function(address, state)
     net.writeInt(32)
     net.writeFloat(math.pi)
     net.writeDouble(math.pi * 2)
+    net.writeLong(100000)
+    net.writeNumber(10000000) --lua number
     net.writeString("Hello world")
     net.writeColour(1.0, 0.0, 0.0, 1.0)
     net.writeFormat("Bifds", 0, 32, math.pi, math.pi * 2, "Hello world") --write a custom format based on: https://www.lua.org/manual/5.3/manual.html#6.4.2
     
     net.send(address) --send message to address only
-    --net.send(address, flag, channel)
     
-    --net.broadcast() --send message to all connections
-    --net.broadcast(flag, channel)
+    --ALTERNATIVES:
+    --[[
+        -- flag: 0 = reliable, 1 = unreliable, 2 = unsequenced, defaults to reliable
+        --    "reliable" packets are guaranteed to arrive, and arrive in the order in which they are sent
+        --    "unreliable" packets arrive in the order in which they are sent, but they aren't guaranteed to arrive
+        --    "unsequenced" packets are neither guaranteed to arrive, nor do they have any guarantee on the order they arrive.
+        
+        -- channel: defaults to 0
+        --    The channel to send the packet on
     
-    -- flag: 0 = reliable, 1 = unreliable, 2 = unsequenced, defaults to reliable
-    --    "reliable" packets are guaranteed to arrive, and arrive in the order in which they are sent
-    --    "unreliable" packets arrive in the order in which they are sent, but they aren't guaranteed to arrive
-    --    "unsequenced" packets are neither guaranteed to arrive, nor do they have any guarantee on the order they arrive.
-    
-    -- channel: defaults to 0
-    --    The channel to send the packet on
+        net.send(address, flag, channel)
+
+        --send message to all connections
+        net.broadcast() 
+        net.broadcast(flag, channel)
+    ]]
   end
 end)
 
@@ -106,10 +113,13 @@ net.receive("ping", function(address, roundTripTime)
   local int = net.readInt()
   local float = net.readFloat()
   local double = net.readDouble()
+  local long = net.readLong()
+  local number = net.readNumber() --lua number
   local str = net.readString()
   local r, g, b, a = net.readColour()
   
-  --custom format, quicker but more complicated
+  --read custom format, quicker but more complicated
+  --see https://www.lua.org/manual/5.3/manual.html#6.4.2
   local fByte, fInt, fFloat, fDouble, fString, index = net.readFormat("Bifds") --last returned value is index in stream
   net.seek(index) --must seek to index after reading custom format, otherwise wont be able to read other values after custom format
   
@@ -118,23 +128,30 @@ net.receive("ping", function(address, roundTripTime)
   print("\tint:", int)
   print("\tfloat:", float)
   print("\tdouble:", double)
+  print("\tlong:", long)
+  print("\tnumber:", number)
   print("\tstring:", str)
   print("\tcolour:", r, g, b, a)
   print("\tcustom:", fByte, fInt, fFloat, fDouble, fString)
 
   net.start("pong")
   net.send(address) --send message to address only
-  --net.send(address, flag, channel)
 
-  --net.broadcast() --send message to all connections
-  --net.broadcast(flag, channel)
+  --ALTERNATIVES:
+  --[[
+      -- flag: 0 = reliable, 1 = unreliable, 2 = unsequenced, defaults to reliable
+      --    "reliable" packets are guaranteed to arrive, and arrive in the order in which they are sent
+      --    "unreliable" packets arrive in the order in which they are sent, but they aren't guaranteed to arrive
+      --    "unsequenced" packets are neither guaranteed to arrive, nor do they have any guarantee on the order they arrive.
+      
+      -- channel: defaults to 0
+      --    The channel to send the packet on
+  
+      net.send(address, flag, channel)
 
-  -- flag: 0 = reliable, 1 = unreliable, 2 = unsequenced, defaults to reliable
-  --    "reliable" packets are guaranteed to arrive, and arrive in the order in which they are sent
-  --    "unreliable" packets arrive in the order in which they are sent, but they aren't guaranteed to arrive
-  --    "unsequenced" packets are neither guaranteed to arrive, nor do they have any guarantee on the order they arrive.
-
-  -- channel: defaults to 0
-  --    The channel to send the packet on
+      --send message to all connections
+      net.broadcast() 
+      net.broadcast(flag, channel)
+  ]]
 end)
 ```
